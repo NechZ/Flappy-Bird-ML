@@ -11,12 +11,13 @@ class GameObject(pygame.sprite.Sprite):
         
         self.surface = pygame.Surface((self.width, self.height))
         self.surface.fill(self.color)
-        self.rect = self.surface.get_rect()
+        self.rect = self.surface.get_rect(topleft=(self.x, self.y))
         
     def draw_object(self, screen: pygame.surface, x: float, y: float) -> None:
         screen.blit(self.surface, (x, y))
         self.x = x
         self.y = y    
+        self.rect.topleft = (x, y)
         
     def collides_with(self, other: 'GameObject') -> bool:
         return self.rect.colliderect(other.rect)
@@ -24,16 +25,22 @@ class GameObject(pygame.sprite.Sprite):
         
 class Player(GameObject):
     def __init__(self) -> None:
-        super().__init__(x_init=300, y_init=200, width=50, height=50, color=(255, 255, 255))
+        super().__init__(x_init=300, y_init=200, width=20, height=20, color=(255, 255, 255))
         
         self.gravity = 9.81
         self.acceleration = self.gravity
         self.velocity = 0
+        self.jumpforce = -5 
         
     def draw_player(self, screen: pygame.Surface) -> None:
         self.draw_object(screen, self.x, self.y)    
     
     def animate_player(self, screen: pygame.Surface, delta_time: float) -> None:
+        
+        keys = pygame.key.get_pressed()
+        if keys[pygame.K_SPACE]:
+            self.velocity = self.jumpforce
+        
         self.velocity += self.acceleration * delta_time
         self.y += self.velocity
         
@@ -104,12 +111,12 @@ if __name__ == "__main__":
         delta_time = clock.tick(FPS) / 1000
 
         for event in pygame.event.get():
-            
             if event.type == pygame.QUIT:
                 shutDownFlag = True
         screen.fill((0, 0, 0))
         player.animate_player(screen, delta_time)
         gate.animate_gate(screen)
         if (player.is_dead(gate.get_gates())):
+            print("PLAYER DIED")
             shutDownFlag = True
         pygame.display.flip()
