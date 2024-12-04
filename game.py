@@ -55,7 +55,7 @@ class Player(GameObject):
         self.draw_object(screen, self.x, self.y)
         
     def is_dead(self, objects: Optional[List[GameObject]]=None) -> bool:
-        if self.y > 600:
+        if self.y > 600 or self.y < 0:
             return True
 
         if objects:
@@ -121,42 +121,55 @@ class Gate():
     def get_score_gate(self) -> GameObject:
         return self.score_gate
         
-if __name__ == "__main__":
-    pygame.init()
-    pygame.font.init()
-    shutDownFlag = False
-    
-    clock: pygame.time.Clock = pygame.time.Clock()
-    screen: pygame.Surface = pygame.display.set_mode((800, 600))
-    font: pygame.font.Font = pygame.font.SysFont("Arial", 30)
-    FPS: int = 60
-    
-    while not shutDownFlag:
-        gate = Gate(speed=5)
-        player = Player()
-        gate.draw_gate(screen)
-        player.draw_player(screen)
-
-        restartFlag = False
+class Game():
+    def __init__(self) -> None:
+        pygame.init()
+        pygame.font.init()
+        self.shutDownFlag = False
+        self.restartFlag = False
         
-        while not restartFlag:
+        self.clock: pygame.time.Clock = pygame.time.Clock()
+        self.screen: pygame.Surface = pygame.display.set_mode((800, 600))
+        self.font: pygame.font.Font = pygame.font.SysFont("Arial", 30)
+        self.FPS: int = 60
+    
+    def start_game(self) -> None:
+        while not self.shutDownFlag:
+            self.gate = Gate(speed=5)
+            self.player = Player()
+            self.gate.draw_gate(self.screen)
+            self.player.draw_player(self.screen)
+                
+            self._run_gameloop()
+            
+            del self.gate
+            del self.player
+            
+            self.restartFlag = False
+            
+    def _run_gameloop(self) -> None:
+        while not self.restartFlag and not self.shutDownFlag:
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
-                    shutDownFlag = True
-                    restartFlag = True
-            
-            delta_time = clock.tick(FPS) / 1000
+                    self.shutDownFlag = True
+                    self.restartFlag = True
                     
-            screen.fill((0, 0, 0))
-            player.animate_player(screen, delta_time)
-            gate.animate_gate(screen)
-            text_surface = font.render(str(player.score), True, (255, 255, 255))
-            screen.blit(text_surface, (400, 20))
+            self._refresh_display()
+                    
+    def _refresh_display(self) -> None:
+        self.delta_time = self.clock.tick(self.FPS) / 1000
+        self.screen.fill((0, 0, 0))
+        self.player.animate_player(self.screen, self.delta_time)
+        self.gate.animate_gate(self.screen)
+        text_surface = self.font.render(str(self.player.score), True, (255, 255, 255))
+        self.screen.blit(text_surface, (400, 20))
+        
+        self.player.check_score(self.gate.get_score_gate())    
+        self.restartFlag = self.player.is_dead(self.gate.get_gates())
+                    
+        pygame.display.flip()
             
-            player.check_score(gate.get_score_gate())    
-            restartFlag = player.is_dead(gate.get_gates())
-                        
-            pygame.display.flip()
-            
-        del gate
-        del player
+if __name__ == "__main__":
+    game: Game = Game()
+    
+    game.start_game()
