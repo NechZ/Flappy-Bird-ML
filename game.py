@@ -61,16 +61,16 @@ class Player(GameObject):
         
         self.draw_object(screen, self.x, self.y)
         
-    def is_dead(self, objects: Optional[List[GameObject]]=None) -> bool:
+    def is_dead(self, objects: Optional[List[GameObject]]=None) -> int:
         if self.y > 600 or self.y < 0:
-            return True
+            return 0
 
         if objects:
             for obj in objects:
                 if self.collides_with(obj):
-                    return True
+                    return 1
         
-        return False
+        return -1
     
     def check_score(self, obj: GameObject) -> bool:
         collided: bool = self.collides_with(obj)
@@ -140,7 +140,7 @@ class Game():
         self.clock: pygame.time.Clock = pygame.time.Clock()
         self.screen: pygame.Surface = pygame.display.set_mode((800, 600))
         self.font: pygame.font.Font = pygame.font.SysFont("Arial", 30)
-        self.FPS: int = 60
+        self.FPS: int = 120
     
     def start_game(self, genomes: List[Tuple[int, neat.genome.DefaultGenome]], 
                    config: neat.config.Config) -> None:
@@ -203,14 +203,21 @@ class Game():
             output = self.nets[i].activate(list(state.values()))
             if output[0] > 0.5:
                 self.jump_player(player)
-            
-            self.genomes[i].fitness += 0.1    
+ 
+            self.genomes[i].fitness += 0.1            
             
             player.animate_player(self.screen, self.delta_time)
             player.check_score(self.gate.get_score_gate())
             
-            if player.is_dead(self.gate.get_gates()):
-                self.genomes[i].fitness -= 1
+            death_code: int = player.is_dead(self.gate.get_gates())
+            
+            if death_code == 0:
+                self.genomes[i].fitness -= 30
+                self.players.pop(i)
+                self.nets.pop(i)
+                self.genomes.pop(i)
+            if death_code == 1:
+                self.genomes[i].fitness -= 10
                 self.players.pop(i)
                 self.nets.pop(i)
                 self.genomes.pop(i)
@@ -222,6 +229,8 @@ class Game():
              
         text_surface = self.font.render(str(max_score), True, (255, 255, 255))
         self.screen.blit(text_surface, (400, 20))
+        text_genome_surface = self.font.render(str(len(self.players)), True, (255, 255, 255))
+        self.screen.blit(text_genome_surface, (200, 20))
         
         self.gate.animate_gate(self.screen)
         pygame.display.flip()
@@ -233,12 +242,14 @@ if __name__ == "__main__":
                                 neat.DefaultSpeciesSet, neat.DefaultStagnation,
                                 config_path)
     
+    #population = neat.Checkpointer.restore_checkpoint("")
     population = neat.Population(config)
     population.add_reporter(neat.StdOutReporter(True))
     stats_reporter = neat.StatisticsReporter()
     population.add_reporter(stats_reporter)
+    population.add_reporter(neat.Checkpointer(1))
     
     game = Game()
-    population.run(game.start_game, 50)
+    population.run(game.start_game, 200)
     
     pygame.quit()
