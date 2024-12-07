@@ -85,7 +85,7 @@ class Player(GameObject):
         return False
 
 class Gate():
-    def __init__(self, speed: float = 1) -> None:        
+    def __init__(self, speed: float = 500) -> None:        
         self.speed = speed
         self.width: float = 150
         self.height: float = 500
@@ -103,7 +103,7 @@ class Gate():
         self.gate_down.draw_object(screen, self.gate_down.x, self.gate_down.y)
         self.score_gate.move_rect(self.score_gate.x, self.score_gate.y)
     
-    def animate_gate(self, screen: pygame.Surface) -> None:        
+    def animate_gate(self, screen: pygame.Surface, delta_time: float) -> None:        
         if (self.gate_up.x < -150 and self.gate_down.x < -150):
             x_up_new = 800 
             x_down_new = 800
@@ -115,9 +115,10 @@ class Gate():
             y_score_new = 0
             
         else:
-            x_up_new = self.gate_up.x - 1 * self.speed
-            x_down_new = self.gate_down.x -1 * self.speed
-            x_score_new = self.score_gate.x -1 * self.speed
+            movement: float = self.speed * delta_time
+            x_up_new = self.gate_up.x - movement
+            x_down_new = self.gate_down.x - movement
+            x_score_new = self.score_gate.x - movement
             
             y_up_new = self.gate_up.y
             y_down_new = self.gate_down.y
@@ -134,7 +135,8 @@ class Gate():
         return self.score_gate
     
     def get_top_left(self) -> Tuple[float, float]:
-        return (self.gate_up.x, self.gate_up.y - self.height)
+        return (self.gate_up.x, self.gate_up.y + self.height)
+    
     def get_bottom_right(self) -> Tuple[float, float]:
         return (self.gate_up.x + self.width, self.gate_down.y)
         
@@ -147,11 +149,12 @@ class Game():
         self.clock: pygame.time.Clock = pygame.time.Clock()
         self.screen: pygame.Surface = pygame.display.set_mode((800, 600))
         self.font: pygame.font.Font = pygame.font.SysFont("Arial", 30)
-        self.FPS: int = 120
+        self.FPS: int = 60
+        self.SIM_SPEED: float = 1.0
     
     def start_game(self, genomes: List[Tuple[int, neat.genome.DefaultGenome]], 
                    config: neat.config.Config) -> None:
-        self.gate = Gate(speed=5)
+        self.gate = Gate(speed=500)
         self.players: List[Player] = []
         self.nets: List[neat.nn.FeedForwardNetwork] = []
         self.genomes: List[neat.genome.DefaultGenome] = []
@@ -203,7 +206,16 @@ class Game():
         return state        
                     
     def _refresh_display(self) -> None:
-        self.delta_time = self.clock.tick(self.FPS) / 1000
+        base_delta_time = self.clock.tick(self.FPS) / 1000
+        
+        keys = pygame.key.get_pressed()
+        if keys[pygame.K_UP]:
+            self.SIM_SPEED = min(10.0, self.SIM_SPEED + 0.1)
+        if keys[pygame.K_DOWN]:
+            self.SIM_SPEED = max(0.1, self.SIM_SPEED - 0.1)
+            
+        self.delta_time = base_delta_time * self.SIM_SPEED
+        
         self.screen.fill((0, 0, 0))
         
         for i, player in enumerate(self.players):
@@ -212,6 +224,10 @@ class Game():
             if output[0] > 0.5:
                 self.jump_player(player)           
             
+            player.animate_player(self.screen, self.delta_time)
+            if player.check_score(self.gate.get_score_gate()):
+                self.genomes[i].fitness += 1
+            
             death_code: int = player.is_dead(self.gate.get_gates())
             
             if death_code in [0, 1]:
@@ -219,23 +235,19 @@ class Game():
                 self.players.pop(i)
                 self.nets.pop(i)
                 self.genomes.pop(i)
-            
-            player.animate_player(self.screen, self.delta_time)
-            if player.check_score(self.gate.get_score_gate()):
-                self.genomes[i].fitness += 1
-            
     
         if self.players:
             max_score = max(player.score for player in self.players)
         else:
             max_score = 0
+        
+        self.gate.animate_gate(self.screen, self.delta_time)
              
         text_surface = self.font.render(str(max_score), True, (255, 255, 255))
         self.screen.blit(text_surface, (400, 20))
         text_genome_surface = self.font.render(str(len(self.players)), True, (255, 255, 255))
         self.screen.blit(text_genome_surface, (200, 20))
         
-        self.gate.animate_gate(self.screen)
         pygame.display.flip()
             
 if __name__ == "__main__":
