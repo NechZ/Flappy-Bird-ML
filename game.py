@@ -5,7 +5,7 @@ import pygame
 from typing import List, Optional, Tuple
 import random
 import neat
-import time
+import matplotlib.pyplot as plt
 
 class GameObject(pygame.sprite.Sprite):
     def __init__(self, x_init: float, y_init: float, width: float, 
@@ -130,6 +130,11 @@ class Gate():
         
     def get_score_gate(self) -> GameObject:
         return self.score_gate
+    
+    def get_top_left(self) -> Tuple[float, float]:
+        return (self.gate_up.x, self.gate_up.y - self.height)
+    def get_bottom_right(self) -> Tuple[float, float]:
+        return (self.gate_up.x + self.width, self.gate_down.y)
         
 class Game():
     def __init__(self) -> None:
@@ -186,11 +191,12 @@ class Game():
         state = {}
         state["Y_player"] = float(player.y)
         state["V_player"] = float(player.velocity)
-        gate_up, gate_down = self.gate.get_gates()
-        state["X_gate_up"] = float(gate_up.x)
-        state["Y_gate_up"] = float(gate_up.y)
-        state["X_gate_down"] = float(gate_down.x)
-        state["Y_gate_down"] = float(gate_down.y)
+        top_left_x, top_left_y =  self.gate.get_top_left()
+        bottom_right_x, bottom_right_y = self.gate.get_bottom_right()
+        state["Top_left_x"] = float(top_left_x)
+        state["Top_left_y"] = float(top_left_y)
+        state["Bottom_right_x"] = float(bottom_right_x)
+        state["Bottom_right_y"] = float(bottom_right_y)
         
         return state        
                     
@@ -211,13 +217,8 @@ class Game():
             
             death_code: int = player.is_dead(self.gate.get_gates())
             
-            if death_code == 0:
-                self.genomes[i].fitness -= 30
-                self.players.pop(i)
-                self.nets.pop(i)
-                self.genomes.pop(i)
-            if death_code == 1:
-                self.genomes[i].fitness -= 10
+            if death_code in [0, 1]:
+                self.genomes[i].fitness -= 30 if death_code == 1 else 0
                 self.players.pop(i)
                 self.nets.pop(i)
                 self.genomes.pop(i)
