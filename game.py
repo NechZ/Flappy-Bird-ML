@@ -5,6 +5,8 @@ import pygame
 from typing import List, Optional, Tuple
 import random
 import neat
+import matplotlib
+matplotlib.use('TkAgg')
 import matplotlib.pyplot as plt
 
 class GameObject(pygame.sprite.Sprite):
@@ -208,20 +210,20 @@ class Game():
             state = self.get_state(player)
             output = self.nets[i].activate(list(state.values()))
             if output[0] > 0.5:
-                self.jump_player(player)
- 
-            self.genomes[i].fitness += 0.1            
-            
-            player.animate_player(self.screen, self.delta_time)
-            player.check_score(self.gate.get_score_gate())
+                self.jump_player(player)           
             
             death_code: int = player.is_dead(self.gate.get_gates())
             
             if death_code in [0, 1]:
-                self.genomes[i].fitness -= 30 if death_code == 1 else 0
+                self.genomes[i].fitness -= 2 if death_code == 1 else 1
                 self.players.pop(i)
                 self.nets.pop(i)
                 self.genomes.pop(i)
+            
+            player.animate_player(self.screen, self.delta_time)
+            if player.check_score(self.gate.get_score_gate()):
+                self.genomes[i].fitness += 1
+            
     
         if self.players:
             max_score = max(player.score for player in self.players)
