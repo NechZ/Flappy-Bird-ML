@@ -41,26 +41,23 @@ class Player(GameObject):
         super().__init__(x_init=300, y_init=200, width=20, height=20, 
                          color=(255, 255, 255))
         
-        self.gravity: float = 20
-        self.acceleration: float = self.gravity
+        self.gravity: float = 1500
         self.velocity: float = 0
-        self.jumpforce: float  = -7.5
+        self.jump_force: float  = -600
         
         self.score: int = 0
-        self.justScored: bool = False
+        self.just_scored: bool = False
         
-    def draw_player(self, screen: pygame.Surface) -> None:
-        self.draw_object(screen, self.x, self.y)    
-    
-    def animate_player(self, screen: pygame.Surface, delta_time: float) -> None:
+    def update(self, screen: pygame.Surface, delta_time: float) -> None:
+        self.velocity += self.gravity * delta_time
+        self.y += self.velocity * delta_time
+        self.draw(screen)
         
-        keys = pygame.key.get_pressed()
-        if keys[pygame.K_SPACE]:
-            self.velocity = self.jumpforce
-        
-        self.velocity += self.acceleration * delta_time
-        self.y += self.velocity
-        
+    def jump(self) -> None:
+        if self.velocity > 0:
+            self.velocity = self.jump_force
+            
+    def draw(self, screen: pygame.Surface) -> None:
         self.draw_object(screen, self.x, self.y)
         
     def is_dead(self, objects: Optional[List[GameObject]]=None) -> int:
@@ -76,12 +73,12 @@ class Player(GameObject):
     
     def check_score(self, obj: GameObject) -> bool:
         collided: bool = self.collides_with(obj)
-        if collided and not self.justScored:
+        if collided and not self.just_scored:
             self.score += 1
-            self.justScored = True
+            self.just_scored = True
             return True
         elif not collided:
-            self.justScored = False
+            self.just_scored = False
         return False
 
 class Gate():
@@ -89,21 +86,21 @@ class Gate():
         self.speed = speed
         self.width: float = 150
         self.height: float = 500
-         
+        self.current_score: int = 0
+        
         self.gate_up: GameObject = GameObject(700, -self.height + 200,
                                               self.width, self.height, (0, 255, 0))
         self.gate_down: GameObject = GameObject(700, 400, self.width, 
                                                 self.height, (0, 255, 0))
-        
         self.score_gate: GameObject = GameObject(700 + self.width/2, 0, 
                                                  self.width/10, self.height, (0, 0, 0))
         
-    def draw_gate(self, screen: pygame.Surface) -> None:
+    def draw(self, screen: pygame.Surface) -> None:
         self.gate_up.draw_object(screen, self.gate_up.x, self.gate_up.y)
         self.gate_down.draw_object(screen, self.gate_down.x, self.gate_down.y)
         self.score_gate.move_rect(self.score_gate.x, self.score_gate.y)
     
-    def animate_gate(self, screen: pygame.Surface, delta_time: float) -> None:        
+    def update(self, screen: pygame.Surface, delta_time: float) -> None:        
         if (self.gate_up.x < -150 and self.gate_down.x < -150):
             x_up_new = 800 
             x_down_new = 800
@@ -113,6 +110,8 @@ class Gate():
             y_up_new = -self.height + 200 + y_random
             y_down_new = 400 + y_random
             y_score_new = 0
+            
+            self.current_score += 1
             
         else:
             movement: float = self.speed * delta_time
@@ -167,9 +166,9 @@ class Game():
             genome.fitness = 0
             self.genomes.append(genome)
             
-        self.gate.draw_gate(self.screen)
+        self.gate.draw(self.screen)
         for player in self.players:
-            player.draw_player(self.screen)
+            player.draw(self.screen)
             
         while not self.shutDownFlag:
             for event in pygame.event.get():
@@ -187,10 +186,6 @@ class Game():
         del self.players
         del self.nets
         del self.genomes
-        print("RESTARTING")
-            
-    def jump_player(self, player: Player) -> None:
-        player.velocity = player.jumpforce
         
     def get_state(self, player: Player) -> dict:
         state = {}
@@ -210,43 +205,51 @@ class Game():
         
         keys = pygame.key.get_pressed()
         if keys[pygame.K_UP]:
-            self.SIM_SPEED = min(10.0, self.SIM_SPEED + 0.1)
+            self.SIM_SPEED = round(min(10.0, self.SIM_SPEED + 0.1), 3)
         if keys[pygame.K_DOWN]:
-            self.SIM_SPEED = max(0.1, self.SIM_SPEED - 0.1)
+            self.SIM_SPEED = round(max(0.1, self.SIM_SPEED - 0.1), 3)
             
         self.delta_time = base_delta_time * self.SIM_SPEED
         
         self.screen.fill((0, 0, 0))
         
-        for i, player in enumerate(self.players):
+        for i in reversed(range(len(self.players))):
+            player = self.players[i]
             state = self.get_state(player)
             output = self.nets[i].activate(list(state.values()))
             if output[0] > 0.5:
-                self.jump_player(player)           
+                player.jump()           
             
-            player.animate_player(self.screen, self.delta_time)
+            player.update(self.screen, self.delta_time)
+            
             if player.check_score(self.gate.get_score_gate()):
-                self.genomes[i].fitness += 1
+                self.genomes[i].fitness += 5
+                
+            self.genomes[i].fitness += 0.1 * self.delta_time
             
             death_code: int = player.is_dead(self.gate.get_gates())
             
             if death_code in [0, 1]:
-                self.genomes[i].fitness -= 2 if death_code == 1 else 1
+                self.genomes[i].fitness -= 1 if death_code == 1 else 0.5
                 self.players.pop(i)
                 self.nets.pop(i)
                 self.genomes.pop(i)
     
         if self.players:
-            max_score = max(player.score for player in self.players)
+            max_fitness = round(max(genome.fitness for genome in self.genomes), 3)
         else:
-            max_score = 0
+            max_fitness = 0
         
-        self.gate.animate_gate(self.screen, self.delta_time)
+        self.gate.update(self.screen, self.delta_time)
              
-        text_surface = self.font.render(str(max_score), True, (255, 255, 255))
-        self.screen.blit(text_surface, (400, 20))
-        text_genome_surface = self.font.render(str(len(self.players)), True, (255, 255, 255))
-        self.screen.blit(text_genome_surface, (200, 20))
+        score_text = self.font.render(str(self.gate.current_score), True, (255, 255, 255))
+        self.screen.blit(score_text, (400, 20))
+        fitness_text = self.font.render(str(max_fitness), True, (255, 255, 255))
+        self.screen.blit(fitness_text, (600, 20))
+        remaining_text = self.font.render(str(len(self.players)), True, (255, 255, 255))
+        self.screen.blit(remaining_text, (200, 20))
+        sim_speed_text = self.font.render(str(self.SIM_SPEED), True, (255, 255, 255))
+        self.screen.blit(sim_speed_text, (10, 20))
         
         pygame.display.flip()
             
@@ -262,7 +265,9 @@ if __name__ == "__main__":
     population.add_reporter(neat.StdOutReporter(True))
     stats_reporter = neat.StatisticsReporter()
     population.add_reporter(stats_reporter)
-    population.add_reporter(neat.Checkpointer(1))
+    checkpoint_dir = "checkpoints/neat-checkpoint-"
+    population.add_reporter(neat.Checkpointer(generation_interval=1, 
+                                              filename_prefix=checkpoint_dir))
     
     game = Game()
     population.run(game.start_game, 200)
