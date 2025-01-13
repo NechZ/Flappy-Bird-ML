@@ -1,13 +1,14 @@
+import neat
 import neat.config
 import neat.genome
 import neat.statistics
 import pygame
-from typing import List, Optional, Tuple
-import random
-import neat
 import matplotlib
 matplotlib.use('TkAgg')
 import matplotlib.pyplot as plt
+
+from typing import List, Optional, Tuple
+import random
 
 class GameObject(pygame.sprite.Sprite):
     def __init__(self, x_init: float, y_init: float, width: float, 
@@ -21,7 +22,7 @@ class GameObject(pygame.sprite.Sprite):
         self.surface.fill(self.color)
         self.rect = self.surface.get_rect(topleft=(self.x, self.y))
         
-    def draw_object(self, screen: pygame.surface, x: float, y: float) -> None:
+    def draw_object(self, screen: pygame.Surface, x: float, y: float) -> None:
         screen.blit(self.surface, (x, y))
         self.x = x
         self.y = y    
