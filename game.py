@@ -9,6 +9,7 @@ import matplotlib.pyplot as plt
 
 from typing import List, Optional, Tuple
 import random
+import os
 
 class GameObject(pygame.sprite.Sprite):
     def __init__(self, x_init: float, y_init: float, width: float, 
@@ -267,6 +268,8 @@ if __name__ == "__main__":
     stats_reporter = neat.StatisticsReporter()
     population.add_reporter(stats_reporter)
     checkpoint_dir = "checkpoints/neat-checkpoint-"
+    if not os.path.exists(checkpoint_dir):
+        os.makedirs(checkpoint_dir)
     population.add_reporter(neat.Checkpointer(generation_interval=1, 
                                               filename_prefix=checkpoint_dir))
     
